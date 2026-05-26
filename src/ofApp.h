@@ -66,7 +66,7 @@ class ofApp : public ofBaseApp{
 		ofRectangle hardButton;
 		
 		//line
-		int laneX[4];
+		int laneX[5];
 		int judgeLineY;
 	
 		//ボタン
@@ -127,6 +127,34 @@ class ofApp : public ofBaseApp{
 		bool gameEndWaiting;
 		float gameEndTime;
 	
+	//連続防止
+	float lastLanePressTime[5];
+	float debounceTime;
+	bool canPressLaneButton(int key);
+	float menuDebounceTime;
+	
+	ofColor laneColor[5];
+	
+	//pause
+	bool isPause;
+	void drawColorButton(int x, int y,ofColor color);
+	void drawPauseMenu();
+	void drawSquareButton(float x,float y,ofColor color);
+	float pauseStartTime;
+	bool isResumeCountdown;
+	float resumeCountdownStartTime;
+	
+	
+	//log
+	void sendText2server( string txt );
+	uint64_t lastLogTime = 0;
+	int button1Count = 0;
+	int button2Count = 0;
+	int button3Count = 0;
+	int button4Count = 0;
+	int button5Count = 0;
+	int buttonOKcount = 0;
+	int buttonBackCount = 0;
 	
 	
 };

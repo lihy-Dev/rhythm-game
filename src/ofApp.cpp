@@ -1,18 +1,53 @@
 #include "ofApp.h"
 
 //--------------------------------------------------------------
+void ofApp::sendText2server(string txt){
+ 
+	// 記録サーバとの通信用（いじらない）
+	string com = "curl -s -m 3";
+	string server = "'http://colors.ise.ibaraki.ac.jp/IoTproj/log.php?";
+	string auth = "-u 'iotproj:BrVQxevZ'";
+	string who = "who=";
+	string ID = "ID=";
+ 
+	// 各自でプログラムごとに設定
+	// 使えない文字 &, %, =
+	who += "LiH"; // 自分の名前にする、空白OK
+	ID = ID + "RhythmGame(" + __DATE__ + "/" __TIME__ + ")"; // ビルド日時を追加
+ 
+	ofStringReplace( who, " ", "%20" ); // 空白を変換 for cURL
+	ofStringReplace( ID, " ", "%20" );
+	ofStringReplace( txt, " ", "%20" );
+		
+	string fullURL = com + " " + auth + " " + server + who +"&"+ ID +"&line="+txt+"'&";
+ 
+	cout << fullURL << endl;
+	ofSystem( fullURL );
+ 
+}
+//--------------------------------------------------------------
 void ofApp::setup(){
 	
 	ofBackground(0);
 	
 	currentState = STATE_TITLE;
 	selectedDifficulty = 0;
-	
-	laneX[0] = 430;
-	laneX[1] = 570;
-	laneX[2] = 710;
-	laneX[3] = 850;
 
+	float laneSpacing = 120;
+	float centerX = ofGetWidth() / 2;
+
+	laneX[0] = centerX - laneSpacing * 2;
+	laneX[1] = centerX - laneSpacing;
+	laneX[2] = centerX;
+	laneX[3] = centerX + laneSpacing;
+	laneX[4] = centerX + laneSpacing * 2;
+	
+	laneColor[0] = ofColor(255, 60, 60);
+	laneColor[1] = ofColor(60, 220, 120);
+	laneColor[2] = ofColor(50, 170, 255);
+	laneColor[3] = ofColor(255, 220, 60);
+	laneColor[4] = ofColor(240, 240, 240);
+	
 	judgeLineY = 650;
 	
 	noteX = laneX[0];
@@ -29,6 +64,8 @@ void ofApp::setup(){
 	scorePopupTimer = 0;
 	
 	combo = 0;
+	
+	pauseStartTime=0.0f;
 
 	ofTrueTypeFontSettings tutorialsettings("NotoSansJP-Regular.ttf", 18);
 	tutorialsettings.addRanges(ofAlphabet::Latin);
@@ -99,7 +136,26 @@ void ofApp::setup(){
 	countdownSartTime = 0;
 	noteAppearTime = 4.0f;
 	
+	
+	//连续防止
+	for(int i=0;i<5;i++){
+		lastLanePressTime[i]=-999;
+	}
+	debounceTime=0.02f;
+	menuDebounceTime=0.25f;
 
+
+	//select
+	isPause = false;
+	
+	//log
+	sendText2server("program_start");
+	lastLogTime = ofGetElapsedTimeMillis();
+	
+	//pause
+	isResumeCountdown=false;
+	resumeCountdownStartTime=0.0f;
+	
 	
 }
 
@@ -108,13 +164,13 @@ void ofApp::setup(){
 //音符reset
 void ofApp::resetNote(){
 	noteY = 0;
-	noteX = laneX[(int)ofRandom(0,4)];
+	noteX = laneX[(int)ofRandom(0,5)];
 }
 
 void ofApp::resetTutorialNote(){
-	int tutorialLaneX[4] = {620,780,940,1100};
+	int tutorialLaneX[5] = {620,740,860,980,1100};
 	noteY = 0;
-	noteX = tutorialLaneX[(int)ofRandom(0,4)];
+	noteX = tutorialLaneX[(int)ofRandom(0,5)];
 }
 
 //--------------------------------------------------------------
@@ -126,41 +182,84 @@ void ofApp::update(){
 	else if(currentState == STATE_PLAY){
 		updateGame();
 	}
+	
+	//log
+	if(ofGetElapsedTimeMillis()-lastLogTime>=300000){
+		sendText2server("alive");
+		lastLogTime=ofGetElapsedTimeMillis();
+	}
 }
 
 //--------------------------------------------------------------
 void ofApp::drawTitleScreen(){
+	float w = ofGetWidth();
+	float h = ofGetHeight();
+
 	ofSetColor(255);
-	string title = "4KEY RHYTHM GAME";
+
+	string title = "5KEY RHYTHM GAME";
 	float titleWidth = titleFont.stringWidth(title);
-	float x = ofGetWidth()/2 - titleWidth/2;
-	titleFont.drawString(title, x, 140);
-	
-	//Tutorialボタン
-	ofNoFill();
-	ofSetColor(180);
-	ofDrawRectangle(tutorialButton);
-	
-	string text = "Tutorial";
-	float textWidth = menuFont.stringWidth(text);
-	float textHeight = menuFont.stringHeight(text);
-	
-	ofFill();
+
+	titleFont.drawString(
+		title,
+		w / 2 - titleWidth / 2,
+		h * 0.22
+	);
+
+	// 菜单整体宽度
+	float menuGroupW = 360;
+
+	// 菜单整体左端
+	float groupX = w / 2 - menuGroupW / 2;
+
+	float iconX = groupX + 40;
+	float textX = groupX + 100;
+
+	float tutorialY = h * 0.45;
+	float startY = h * 0.58;
+
+	drawColorButton(iconX, tutorialY, laneColor[0]);
 	ofSetColor(255);
-	menuFont.drawString(text, tutorialButton.x + tutorialButton.width/2 - textWidth/2, tutorialButton.y + tutorialButton.height/2 + 8);
-	
-	
-	//Startボタン
-	ofNoFill();
-	ofSetColor(180);
-	ofDrawRectangle(startButton);
-	
-	string starttext = "Start";
-	float starttextWidth = menuFont.stringWidth(starttext);
-	
-	ofFill();
+	menuFont.drawString("チュートリアル", textX, tutorialY + 10);
+
+	drawColorButton(iconX, startY, laneColor[1]);
 	ofSetColor(255);
-	menuFont.drawString(starttext, startButton.x + startButton.width/2 - starttextWidth/2, startButton.y + startButton.height/2 + 8);
+	menuFont.drawString("スタート", textX, startY + 10);
+
+	// 下方说明
+	string guide = "同じ色のボタンを押してください";
+	float guideWidth = menuFont.stringWidth(guide);
+
+	ofSetColor(180);
+	menuFont.drawString(
+		guide,
+		w / 2 - guideWidth / 2,
+		h * 0.78
+	);
+//	ofNoFill();
+//	ofSetColor(180);
+//	ofDrawRectangle(tutorialButton);
+//	
+//	string text = "Tutorial";
+//	float textWidth = menuFont.stringWidth(text);
+//	float textHeight = menuFont.stringHeight(text);
+//	
+//	ofFill();
+//	ofSetColor(255);
+//	menuFont.drawString(text, tutorialButton.x + tutorialButton.width/2 - textWidth/2, tutorialButton.y + tutorialButton.height/2 + 8);
+//	
+//	
+//	//Startボタン
+//	ofNoFill();
+//	ofSetColor(180);
+//	ofDrawRectangle(startButton);
+//	
+//	string starttext = "Start";
+//	float starttextWidth = menuFont.stringWidth(starttext);
+//	
+//	ofFill();
+//	ofSetColor(255);
+//	menuFont.drawString(starttext, startButton.x + startButton.width/2 - starttextWidth/2, startButton.y + startButton.height/2 + 8);
 	
 }
 
@@ -196,7 +295,9 @@ void ofApp::drawTutorialScreen(){
 	tutorialFont.drawString("Good ：よい", leftX, 590);
 	tutorialFont.drawString("Miss ：はずれ", leftX, 630);
 
-	tutorialFont.drawString("Bキーでもどる", leftX, 690);
+	drawSquareButton(leftX+25, 685, ofColor(240,240,240));
+	ofSetColor(255);
+	tutorialFont.drawString("押してもどる", leftX+60, 693);
 	
 	ofSetColor(255, 255, 120);
 	tutorialFont.drawString("Score: " + ofToString(score), leftX, 740);
@@ -205,32 +306,44 @@ void ofApp::drawTutorialScreen(){
 	ofDrawLine(dividerX, 120, dividerX, 700);
 	
 	//lane
-	int tutorialLaneX[4];
+	int tutorialLaneX[5];
 	tutorialLaneX[0] = 620;
-	tutorialLaneX[1] = 780;
-	tutorialLaneX[2] = 940;
-	tutorialLaneX[3] = 1100;
+	tutorialLaneX[1] = 740;
+	tutorialLaneX[2] = 860;
+	tutorialLaneX[3] = 980;
+	tutorialLaneX[4] = 1100;
 	
 	ofSetColor(170);
-	for(int i = 0;i<4;i++){
+	for(int i = 0;i<5;i++){
 		ofDrawLine(tutorialLaneX[i], 150, tutorialLaneX[i], 650);
 	}
 	
-	ofSetColor(255, 255, 0);
-	keyFont.drawString("S", tutorialLaneX[0] - keyFont.stringWidth("S")/2, 130);
-	keyFont.drawString("D", tutorialLaneX[1] - keyFont.stringWidth("D")/2, 130);
-	keyFont.drawString("J", tutorialLaneX[2] - keyFont.stringWidth("J")/2, 130);
-	keyFont.drawString("K", tutorialLaneX[3] - keyFont.stringWidth("K")/2, 130);
-	
+
+	string tutorialKeys[5] = {"1", "2", "3", "4", "5"};
+
+	for(int i=0; i<5; i++){
+		ofSetColor(laneColor[i]);
+		keyFont.drawString(
+			tutorialKeys[i],
+			tutorialLaneX[i] - keyFont.stringWidth(tutorialKeys[i])/2,
+			130
+		);
+	}
 	//判定線
 	judgeLineY = 600;
 	ofSetColor(255, 0, 0);
 	ofDrawLine(540, judgeLineY, 1180, judgeLineY);
 	
 	//Note
-	ofSetColor(0, 255, 255);
-	ofDrawRectangle(noteX - 20, noteY, 40, 20);
-	
+	int noteLane = 0;
+	for(int i = 0;i<5;i++){
+		if(noteX==tutorialLaneX[i]){
+			noteLane=i;
+			break;
+		}
+	}
+	ofSetColor(laneColor[noteLane]);
+	ofDrawRectangle(noteX-20, noteY, 40, 20);
 	
 	if(resultTimer > 0){
 		if(resultText == "Great") ofSetColor(255, 255, 0);
@@ -243,71 +356,111 @@ void ofApp::drawTutorialScreen(){
 }
 //--------------------------------------------------------------
 void ofApp::drawDifficultyScreen(){
-	ofSetColor(255);
-	string difficultTitle = "SELECT DIFFICULTY";
-	
-	float difficultTitleWidth = titleFont.stringWidth(difficultTitle);
-	float difficultTitleY = 140;
-	
-	titleFont.drawString(difficultTitle, ofGetWidth()/2 - difficultTitleWidth/2, difficultTitleY);
-	
-	ofNoFill();
-	ofSetColor(180);
-	
-	// Easyボタン
-	ofNoFill();
-	ofSetColor(180);
-	ofDrawRectangle(easyButton);
-
-	string easyText = "Easy";
-	float easyWidth = menuFont.stringWidth(easyText);
-
-	ofFill();
-	ofSetColor(255);
-	menuFont.drawString(
-		easyText,
-		easyButton.x + easyButton.width / 2 - easyWidth / 2,
-		easyButton.y + easyButton.height / 2 + 8
-	);
-
-	// Normalボタン
-	ofNoFill();
-	ofSetColor(180);
-	ofDrawRectangle(normalButton);
-
-	string normalText = "Normal";
-	float normalWidth = menuFont.stringWidth(normalText);
-
-	ofFill();
-	ofSetColor(255);
-	menuFont.drawString(
-		normalText,
-		normalButton.x + normalButton.width / 2 - normalWidth / 2,
-		normalButton.y + normalButton.height / 2 + 8
-	);
-
-	// Hardボタン
-	ofNoFill();
-	ofSetColor(180);
-	ofDrawRectangle(hardButton);
-
-	string hardText = "Hard";
-	float hardWidth = menuFont.stringWidth(hardText);
-
-	ofFill();
-	ofSetColor(255);
-	menuFont.drawString(
-		hardText,
-		hardButton.x + hardButton.width / 2 - hardWidth / 2,
-		hardButton.y + hardButton.height / 2 + 8
-	);
-
-	//戻す説明
-	float backY = 590;
 	float w = ofGetWidth();
-	string backText = "Press B to go back";
-	float backWidth = menuFont.stringWidth(backText);
-	menuFont.drawString(backText, w / 2 - backWidth / 2, backY);
+		float h = ofGetHeight();
+
+		ofSetColor(255);
+
+		string title = "SELECT DIFFICULTY";
+		float titleWidth = titleFont.stringWidth(title);
+
+		titleFont.drawString(
+			title,
+			w / 2 - titleWidth / 2,
+			h * 0.20
+		);
+
+		float iconX = w * 0.40;
+		float textX = w * 0.45;
+
+		float easyY = h * 0.38;
+		float normalY = h * 0.50;
+		float hardY = h * 0.62;
+
+		drawColorButton(iconX, easyY, laneColor[0]);
+		ofSetColor(255);
+		menuFont.drawString("Easy", textX, easyY + 10);
+
+		drawColorButton(iconX, normalY, laneColor[1]);
+		ofSetColor(255);
+		menuFont.drawString("Normal", textX, normalY + 10);
+
+		drawColorButton(iconX, hardY, laneColor[2]);
+		ofSetColor(255);
+		menuFont.drawString("Hard", textX, hardY + 10);
+	
+		float returnY = h*0.82;
+		drawSquareButton(iconX, returnY, ofColor(240,240,240));
+		ofSetColor(180);
+		menuFont.drawString("もどる", textX, returnY+10);
+
+//		ofSetColor(180);
+//		menuFont.drawString("□ Return", iconX, h * 0.82);
+//	ofSetColor(255);
+//	string difficultTitle = "SELECT DIFFICULTY";
+//	
+//	float difficultTitleWidth = titleFont.stringWidth(difficultTitle);
+//	float difficultTitleY = 140;
+//	
+//	titleFont.drawString(difficultTitle, ofGetWidth()/2 - difficultTitleWidth/2, difficultTitleY);
+//	
+//	ofNoFill();
+//	ofSetColor(180);
+//	
+//	// Easyボタン
+//	ofNoFill();
+//	ofSetColor(180);
+//	ofDrawRectangle(easyButton);
+//
+//	string easyText = "Easy";
+//	float easyWidth = menuFont.stringWidth(easyText);
+//
+//	ofFill();
+//	ofSetColor(255);
+//	menuFont.drawString(
+//		easyText,
+//		easyButton.x + easyButton.width / 2 - easyWidth / 2,
+//		easyButton.y + easyButton.height / 2 + 8
+//	);
+//
+//	// Normalボタン
+//	ofNoFill();
+//	ofSetColor(180);
+//	ofDrawRectangle(normalButton);
+//
+//	string normalText = "Normal";
+//	float normalWidth = menuFont.stringWidth(normalText);
+//
+//	ofFill();
+//	ofSetColor(255);
+//	menuFont.drawString(
+//		normalText,
+//		normalButton.x + normalButton.width / 2 - normalWidth / 2,
+//		normalButton.y + normalButton.height / 2 + 8
+//	);
+
+//	// Hardボタン
+//	ofNoFill();
+//	ofSetColor(180);
+//	ofDrawRectangle(hardButton);
+//
+//	string hardText = "Hard";
+//	float hardWidth = menuFont.stringWidth(hardText);
+//
+//	ofFill();
+//	ofSetColor(255);
+//	menuFont.drawString(
+//		hardText,
+//		hardButton.x + hardButton.width / 2 - hardWidth / 2,
+//		hardButton.y + hardButton.height / 2 + 8
+//	);
+//
+//	//戻す説明
+//	float backY = 590;
+//	float w = ofGetWidth();
+//	string backText = "Press S to go back";
+//	float backWidth = menuFont.stringWidth(backText);
+//	menuFont.drawString(backText, w / 2 - backWidth / 2, backY);
 }
 
 
@@ -337,20 +490,25 @@ void ofApp::drawPlayScreen(){
 	ofBackground(10, 10, 20);
 	int laneTop = 80;
 	int laneBottom = judgeLineY + 80;
-	int laneLeft = 360;
-	int laneRight = 920;
-	
+	int laneLeft = laneX[0] - 70;
+	int laneRight = laneX[4] + 70;
 	//背景
 	ofSetColor(20, 20, 35);
 	ofDrawRectangle(laneLeft, laneTop, laneRight - laneLeft, laneBottom - laneTop);
+
+	float x=60;
+	float y=ofGetHeight()-40;
 	
-	string backText = "[B] Back";
-	float x = 60;
-	float y = ofGetHeight() - 40;
-	ofSetColor(180, 180, 180);
-	menuFont.drawString(backText, x, y);
+	drawSquareButton(x, y-70, ofColor(255,60,60));
+	ofSetColor(180);
+	menuFont.drawString("タンマ", x+40, y-60);
 	
-	for(int i=0; i<4; i++){
+	drawSquareButton(x, y-10, ofColor(240,240,240));
+	ofSetColor(180);
+	menuFont.drawString("もどる", x+40, y);
+	
+	
+	for(int i=0; i<5; i++){
 		ofSetColor(80, 80, 100);
 		ofSetLineWidth(3);
 		ofDrawLine(laneX[i], laneTop, laneX[i], laneBottom);
@@ -370,11 +528,12 @@ void ofApp::drawPlayScreen(){
 		pointFont.drawString(scorePopup, 60, 220);
 	}
 	
-	ofSetColor(255, 255, 0);
-	keyFont.drawString("S", laneX[0] - keyFont.stringWidth("S")/2, 70);
-	keyFont.drawString("D", laneX[1] - keyFont.stringWidth("D")/2, 70);
-	keyFont.drawString("J", laneX[2] - keyFont.stringWidth("J")/2, 70);
-	keyFont.drawString("K", laneX[3] - keyFont.stringWidth("K")/2, 70);
+	string keys[5] = {"1", "2", "3", "4", "5"};
+
+	for(int i=0; i<5; i++){
+		ofSetColor(laneColor[i]);
+		keyFont.drawString(keys[i], laneX[i] - keyFont.stringWidth(keys[i])/2, 70);
+	}
 	
 	if(isCountdown){
 		float countTime = ofGetElapsedTimef() - countdownSartTime;
@@ -403,8 +562,10 @@ void ofApp::drawPlayScreen(){
 		float y = getGameNoteY(gameNotes[i]);
 		if(y < laneTop - 40 || y > laneBottom) continue;
 		
-		ofSetColor(0, 255, 255);
-		ofDrawRectangle(laneX[gameNotes[i].lane]-35, y, 70, 24);
+		int lane = gameNotes[i].lane;
+
+		ofSetColor(laneColor[lane]);
+		ofDrawRectangle(laneX[lane]-35,y,70,24);
 	}
 	
 	
@@ -422,9 +583,151 @@ void ofApp::drawPlayScreen(){
 		bigFont.drawString(text, ofGetWidth()/2 - bigFont.stringWidth(text)/2, 360);
 	}
 	
+	if(isPause){
+		drawPauseMenu();
+	}
+	if(isResumeCountdown){
+		float countTime=ofGetElapsedTimef()-resumeCountdownStartTime;
+		ofSetColor(255);
+		if(countTime<1.0f){
+			bigFont.drawString("3", ofGetWidth()/2-bigFont.stringWidth("3")/2, 360);
+		}
+		else if(countTime<2.0f){
+			bigFont.drawString("2", ofGetWidth()/2-bigFont.stringWidth("2")/2, 360);
+		}
+		else{
+			bigFont.drawString("1", ofGetWidth()/2-bigFont.stringWidth("1")/2, 360);
+		}
+	}
+	
+}
+//--------------------------------------------------------------
+void ofApp::drawPauseMenu(){
+	float w = ofGetWidth();
+	float h = ofGetHeight();
+
+	float boxW = w * 0.45;
+	float boxH = h * 0.42;
+
+	float boxX = w / 2 - boxW / 2;
+	float boxY = h / 2 - boxH / 2;
+
+	// 背景
+	ofSetColor(0, 0, 0, 200);
+	ofDrawRectangle(boxX, boxY, boxW, boxH);
+
+	// アウトフレーム
+	ofNoFill();
+	ofSetColor(255);
+	ofSetLineWidth(3);
+	ofDrawRectangle(boxX, boxY, boxW, boxH);
+	ofFill();
+
+	// タイトル
+	string title = "PAUSE";
+	float titleW = titleFont.stringWidth(title);
+
+	ofSetColor(255);
+	titleFont.drawString(
+		title,
+		w / 2 - titleW / 2,
+		boxY + boxH * 0.22
+	);
+
+	float iconX = boxX + boxW * 0.28;
+	float textX = boxX + boxW * 0.40;
+
+	float resumeY = boxY + boxH * 0.45;
+	float retryY  = boxY + boxH * 0.62;
+	float titleY  = boxY + boxH * 0.79;
+
+	// 赤いボタン：続ける
+	drawColorButton(
+		iconX,
+		resumeY,
+		laneColor[0]
+	);
+
+	ofSetColor(255);
+	menuFont.drawString(
+		"つづける",
+		textX,
+		resumeY + 10
+	);
+
+	// 緑ボタン：restart
+	drawColorButton(
+		iconX,
+		retryY,
+		laneColor[1]
+	);
+
+	ofSetColor(255);
+	menuFont.drawString(
+		"もう一度",
+		textX,
+		retryY + 10
+	);
+
+	// 戻る
+	drawSquareButton(
+		iconX,
+		titleY,
+		ofColor(240,240,240)
+	);
+
+	ofSetColor(255);
+	menuFont.drawString(
+		"タイトルへ",
+		textX,
+		titleY + 10
+	);
+}
+//--------------------------------------------------------------
+void ofApp::drawColorButton(int x, int y, ofColor color){
+	ofSetColor(color);
+	ofDrawCircle(x, y, 22);
+	
+	ofSetColor(255);
+	ofNoFill();
+	ofSetLineWidth(3);
+	ofDrawCircle(x, y, 22);
+	ofFill();
+}
+//--------------------------------------------------------------
+void ofApp::drawSquareButton(float x, float y, ofColor color){
+	float size=ofGetHeight()*0.05;
+	ofSetColor(color);
+	ofDrawRectangle(x-size/2, y-size/2, size, size);
+	ofNoFill();
+	ofSetColor(255);
+	ofSetLineWidth(3);
+	ofDrawRectangle(x-size/2, y-size/2, size, size);
+	ofFill();
 }
 //--------------------------------------------------------------
 void ofApp::keyPressedTitle(int key){
+	if(!canPressLaneButton(key)){
+			return;
+		}
+	//1=赤いボタン：チュートリアル
+	if(key=='1'){
+		resetTutorialNote();
+		score=0;
+		resultText="";
+		resultTimer=0;
+		scorePopup="";
+		scorePopupTimer=0;
+		currentState=STATE_TUTORIAL;
+		return;
+	}
+	//2=緑ボタン：スタート
+	if(key=='2'){
+		currentState=STATE_DIFFICULTY;
+		return;
+	}
+	
+	
 	
 }
 //--------------------------------------------------------------
@@ -442,120 +745,140 @@ void ofApp::keyPressed(int key){
 		keyPressedGame(key);
 	}
 	else if(currentState == STATE_RESULT){
-		if(key == 'b' ||key == 'B'){
+		if(key == 's' ||key == 'S'){
 			currentState = STATE_TITLE;
+			if(!canPressLaneButton(key)){
+					return;
+				}
 		}
+	}
+	
+	//log
+	if(key=='1'){
+		button1Count++;
+	}
+	if(key=='2'){
+		button2Count++;
+	}
+	if(key=='3'){
+		button3Count++;
+	}
+	if(key=='4'){
+		button4Count++;
+	}
+	if(key=='5'){
+		button5Count++;
 	}
 }
 
 //--------------------------------------------------------------
 void ofApp::keyReleased(int key){
-
+	
 }
 
 //--------------------------------------------------------------
 void ofApp::mouseMoved(int x, int y ){
-
+	
 }
 
 //--------------------------------------------------------------
 void ofApp::mouseDragged(int x, int y, int button){
-
+	
 }
 
 //--------------------------------------------------------------
 void ofApp::mousePressed(int x, int y, int button){
-	if(currentState == STATE_TITLE){
-		if(tutorialButton.inside(x, y)){
-			resetTutorialNote();
-			currentState = STATE_TUTORIAL;
-		}
-		else if (startButton.inside(x, y)){
-			currentState = STATE_DIFFICULTY;
-		}
-	}
-	else if(currentState == STATE_DIFFICULTY){
-		if(easyButton.inside(x, y)){
-			selectedDifficulty = 0;
-			score = 0;
-			combo = 0;
-			resultText = "";
-			resultTimer = 0;
-			scorePopup = "";
-			scorePopupTimer = 0;
-			greatCount = 0;
-			goodCount = 0;
-			missCount = 0;
-			maxCombo = 0;
-			gameEndWaiting = false;
-			gameEndTime = 0;
-			
-			noteAppearTime = 4.0f; //easy speed
-			
-			loadEasyNotes();
-			
-			bgm.stop();
-			bgm.setPosition(0);
-			
-			isCountdown = true;
-			countdownSartTime = ofGetElapsedTimef();
-			currentState = STATE_PLAY;
-		}
-		else if (normalButton.inside(x, y)){
-			selectedDifficulty = 1;
-			score = 0;
-			combo = 0;
-			resultText = "";
-			resultTimer = 0;
-			scorePopup = "";
-			scorePopupTimer = 0;
-			greatCount = 0;
-			goodCount = 0;
-			missCount = 0;
-			maxCombo = 0;
-			gameEndWaiting = false;
-			gameEndTime = 0;
-			
-			noteAppearTime = 2.5f; // normal speed
-			
-			loadNormalNotes();
-			
-			bgm.stop();
-			bgm.setPosition(0);
-			
-			isCountdown = true;
-			countdownSartTime = ofGetElapsedTimef();
-			currentState = STATE_PLAY;
-		}
-		else if (hardButton.inside(x, y)){
-			selectedDifficulty = 2;
-			score = 0;
-			combo = 0;
-			resultText = "";
-			resultTimer = 0;
-			scorePopup = "";
-			scorePopupTimer = 0;
-			greatCount = 0;
-			goodCount = 0;
-			missCount = 0;
-			maxCombo = 0;
-			gameEndWaiting = false;
-			gameEndTime = 0;
-			
-			noteAppearTime = 2.5f; //hard speed
-			
-			loadHardNotes();
-			
-			bgm.stop();
-			bgm.setPosition(0);
-			
-			isCountdown = true;
-			countdownSartTime = ofGetElapsedTimef();
-			currentState = STATE_PLAY;
-		}
-	}
-
-
+	//	if(currentState == STATE_TITLE){
+	//		if(tutorialButton.inside(x, y)){
+	//			resetTutorialNote();
+	//			currentState = STATE_TUTORIAL;
+	//		}
+	//		else if (startButton.inside(x, y)){
+	//			currentState = STATE_DIFFICULTY;
+	//		}
+	//	}
+	//	else if(currentState == STATE_DIFFICULTY){
+	//		if(easyButton.inside(x, y)){
+	//			selectedDifficulty = 0;
+	//			score = 0;
+	//			combo = 0;
+	//			resultText = "";
+	//			resultTimer = 0;
+	//			scorePopup = "";
+	//			scorePopupTimer = 0;
+	//			greatCount = 0;
+	//			goodCount = 0;
+	//			missCount = 0;
+	//			maxCombo = 0;
+	//			gameEndWaiting = false;
+	//			gameEndTime = 0;
+	//
+	//			noteAppearTime = 4.0f; //easy speed
+	//
+	//			loadEasyNotes();
+	//
+	//			bgm.stop();
+	//			bgm.setPosition(0);
+	//
+	//			isCountdown = true;
+	//			countdownSartTime = ofGetElapsedTimef();
+	//			currentState = STATE_PLAY;
+	//		}
+	//		else if (normalButton.inside(x, y)){
+	//			selectedDifficulty = 1;
+	//			score = 0;
+	//			combo = 0;
+	//			resultText = "";
+	//			resultTimer = 0;
+	//			scorePopup = "";
+	//			scorePopupTimer = 0;
+	//			greatCount = 0;
+	//			goodCount = 0;
+	//			missCount = 0;
+	//			maxCombo = 0;
+	//			gameEndWaiting = false;
+	//			gameEndTime = 0;
+	//
+	//			noteAppearTime = 2.5f; // normal speed
+	//
+	//			loadNormalNotes();
+	//
+	//			bgm.stop();
+	//			bgm.setPosition(0);
+	//
+	//			isCountdown = true;
+	//			countdownSartTime = ofGetElapsedTimef();
+	//			currentState = STATE_PLAY;
+	//		}
+	//		else if (hardButton.inside(x, y)){
+	//			selectedDifficulty = 2;
+	//			score = 0;
+	//			combo = 0;
+	//			resultText = "";
+	//			resultTimer = 0;
+	//			scorePopup = "";
+	//			scorePopupTimer = 0;
+	//			greatCount = 0;
+	//			goodCount = 0;
+	//			missCount = 0;
+	//			maxCombo = 0;
+	//			gameEndWaiting = false;
+	//			gameEndTime = 0;
+	//
+	//			noteAppearTime = 2.5f; //hard speed
+	//
+	//			loadHardNotes();
+	//
+	//			bgm.stop();
+	//			bgm.setPosition(0);
+	//
+	//			isCountdown = true;
+	//			countdownSartTime = ofGetElapsedTimef();
+	//			currentState = STATE_PLAY;
+	//		}
+	//	}
+	//
+	
 }
 //--------------------------------------------------------------
 void ofApp::drawResultScreen(){
@@ -582,43 +905,51 @@ void ofApp::drawResultScreen(){
 	menuFont.drawString("Good: " + ofToString(goodCount), 500, 420);
 	menuFont.drawString("Miss: " + ofToString(missCount), 500, 480);
 	
+	//	ofSetColor(180);
+	//	string backText = "Press S to Title";
+	//	float backWidth = menuFont.stringWidth(backText);
+	//	menuFont.drawString(backText, ofGetWidth()/2-backWidth/2, 620);
+	float w=ofGetWidth();
+	float y =620;
+	float buttonX=w/2-100;
+	float textX=w/2-60;
+	drawSquareButton(buttonX, y-10, ofColor(240,240,240));
 	ofSetColor(180);
-	string backText = "Press B to Title";
-	float backWidth = menuFont.stringWidth(backText);
-	menuFont.drawString(backText, ofGetWidth()/2-backWidth/2, 620);
+	menuFont.drawString("Titleもどる", textX, y);
+	
 }
 //--------------------------------------------------------------
 void ofApp::mouseReleased(int x, int y, int button){
-
+	
 }
 
 //--------------------------------------------------------------
 void ofApp::mouseEntered(int x, int y){
-
+	
 }
 
 //--------------------------------------------------------------
 void ofApp::mouseExited(int x, int y){
-
+	
 }
 
 //--------------------------------------------------------------
 void ofApp::windowResized(int w, int h){
-
+	
 }
 
 //--------------------------------------------------------------
 void ofApp::gotMessage(ofMessage msg){
-
+	
 }
 
 //--------------------------------------------------------------
-void ofApp::dragEvent(ofDragInfo dragInfo){ 
-
+void ofApp::dragEvent(ofDragInfo dragInfo){
+	
 }
 //--------------------------------------------------------------
 void ofApp::updateTutorial(){
-	noteY += noteSpeed;
+	noteY += 2.0;
 	
 	if(resultTimer > 0){
 		resultTimer--;
@@ -632,7 +963,7 @@ void ofApp::updateTutorial(){
 }
 //--------------------------------------------------------------
 void ofApp::keyPressedTutorial(int key){
-	if(key == 'b'|| key =='B'){
+	if(key == 's'|| key =='S'){
 		currentState = STATE_TITLE;
 		return;
 	}
@@ -640,15 +971,25 @@ void ofApp::keyPressedTutorial(int key){
 	
 	int pressedLane = -1;
 	
-	if(key=='s') pressedLane = 0;
-	else if(key=='d') pressedLane = 1;
-	else if(key=='j') pressedLane = 2;
-	else if(key=='k') pressedLane = 3;
+	if(key == '1') pressedLane = 0;
+	else if(key == '2') pressedLane = 1;
+	else if(key == '3') pressedLane = 2;
+	else if(key == '4') pressedLane = 3;
+	else if(key == '5') pressedLane = 4;
 	
 	if(pressedLane == -1) return;
 	
 	//key押す正しいことの判断
-	int tutorialLaneX[4] = {620, 780, 940, 1100};
+	int tutorialLaneX[5] = {620, 740, 860, 980, 1100};
+	
+	//連続防止
+	float now = ofGetElapsedTimef();
+	if(now-lastLanePressTime[pressedLane]<debounceTime){
+		return;
+	}
+	lastLanePressTime[pressedLane]=now;
+	
+	
 	if(noteX == tutorialLaneX[pressedLane]){
 		int diff = abs(noteY - judgeLineY);
 		
@@ -679,6 +1020,20 @@ void ofApp::keyPressedTutorial(int key){
 }
 //--------------------------------------------------------------
 void ofApp::updateGame(){
+	if(isPause){
+		return;
+	}
+	if(isResumeCountdown){
+		float countTime=ofGetElapsedTimef()-resumeCountdownStartTime;
+		if(countTime>=3.0f){
+			isResumeCountdown=false;
+			float pauseDuration=ofGetElapsedTimef()-pauseStartTime;
+			gameStartTime+=pauseDuration;
+			bgm.setPaused(false);
+		}
+		return;
+	}
+	
 	if(isCountdown){
 		float countTime = ofGetElapsedTimef() - countdownSartTime;
 		
@@ -697,12 +1052,12 @@ void ofApp::updateGame(){
 	if(scorePopupTimer>0){
 		scorePopupTimer--;
 	}
-
+	
 	float currentTime = getCurrentGameTime();
-
+	
 	for(int i = 0; i < gameNotes.size(); i++){
 		if(gameNotes[i].judged) continue;
-
+		
 		if(currentTime > gameNotes[i].time + 0.15f){
 			gameNotes[i].judged = true;
 			gameNotes[i].hit = false;
@@ -721,351 +1076,548 @@ void ofApp::updateGame(){
 }
 //--------------------------------------------------------------
 void ofApp::keyPressedGame(int key){
+	
+	// menu
+	if(isPause){
+		// 赤いボタン
+		if(key == '1'){
+			if(!canPressLaneButton(key)){
+				return;
+			}
+			
+			isPause = false;
+			isResumeCountdown=true;
+			resumeCountdownStartTime=ofGetElapsedTimef();
+
+			return;
+		}
+
+		// 緑ボタン
+		if(key == '2'){
+			if(!canPressLaneButton(key)){
+				return;
+			}
+			isPause = false;
+			bgm.stop();
+			bgm.setPosition(0);
+
+			score = 0;
+			combo = 0;
+			resultText = "";
+			resultTimer = 0;
+			scorePopup = "";
+			scorePopupTimer = 0;
+			greatCount = 0;
+			goodCount = 0;
+			missCount = 0;
+			maxCombo = 0;
+			gameEndWaiting = false;
+			gameEndTime = 0;
+
+			if(selectedDifficulty == 0){
+				noteAppearTime = 4.0f;
+				loadEasyNotes();
+			}
+			else if(selectedDifficulty == 1){
+				noteAppearTime = 2.5f;
+				loadNormalNotes();
+			}
+			else if(selectedDifficulty == 2){
+				noteAppearTime = 2.5f;
+				loadHardNotes();
+			}
+
+			isCountdown = true;
+			countdownSartTime = ofGetElapsedTimef();
+
+			currentState = STATE_PLAY;
+			return;
+		}
+
+		// 戻る
+		if(key == 's' || key == 'S'){
+
+			isPause = false;
+			bgm.stop();
+			currentState = STATE_TITLE;
+			return;
+		}
+
+		return;
+	}
+	if(isCountdown){
+		return;
+	}
+	if(isResumeCountdown){
+		return;
+	}
+	if(gameEndWaiting){
+		return;
+	}
+	
+	if(key==' '){
+		isPause=true;
+		pauseStartTime=ofGetElapsedTimef();
+		bgm.setPaused(true);
+		return;
+	}
+	
 	if(resultTimer > 0){
 		resultTimer--;
 	}
-
+	
 	float currentTime = getCurrentGameTime();
-
+	
 	for(int i = 0; i < gameNotes.size(); i++){
 		if(gameNotes[i].judged) continue;
-
+		
 		if(currentTime > gameNotes[i].time + 0.15f){
 			gameNotes[i].judged = true;
 			resultText = "Miss";
 			resultTimer = 90;
 		}
 	}
-	if(key == 'b' || key == 'B'){
-			bgm.stop();
-			currentState = STATE_DIFFICULTY;
-			return;
+	if(key == 's' || key == 'S'){
+		bgm.stop();
+		currentState = STATE_DIFFICULTY;
+		return;
+	}
+	
+	int pressedLane = -1;
+	
+	
+	if(key == '1') pressedLane = 0;
+	else if(key == '2') pressedLane = 1;
+	else if(key == '3') pressedLane = 2;
+	else if(key == '4') pressedLane = 3;
+	else if(key == '5') pressedLane = 4;
+	
+	
+	if(pressedLane == -1) return;
+	
+	int targetIndex = -1;
+	float bestDiff = 999999.0f;
+	
+	//連続防止
+	float now = ofGetElapsedTimef();
+	if(now-lastLanePressTime[pressedLane]<debounceTime){
+		return;
+	}
+	lastLanePressTime[pressedLane]=now;
+	
+	
+	
+	for(int i = 0; i < gameNotes.size(); i++){
+		if(gameNotes[i].judged) continue;
+		if(gameNotes[i].lane != pressedLane) continue;
+		
+		float y = getGameNoteY(gameNotes[i]);
+		float diff = abs(y - judgeLineY);
+		
+		if(diff < bestDiff){
+			bestDiff = diff;
+			targetIndex = i;
 		}
-
-		int pressedLane = -1;
-
-		if(key == 's' || key == 'S') pressedLane = 0;
-		else if(key == 'd' || key == 'D') pressedLane = 1;
-		else if(key == 'j' || key == 'J') pressedLane = 2;
-		else if(key == 'k' || key == 'K') pressedLane = 3;
-
-		if(pressedLane == -1) return;
-
-		int targetIndex = -1;
-		float bestDiff = 999999.0f;
-
-		for(int i = 0; i < gameNotes.size(); i++){
-			if(gameNotes[i].judged) continue;
-			if(gameNotes[i].lane != pressedLane) continue;
-
-			float y = getGameNoteY(gameNotes[i]);
-			float diff = abs(y - judgeLineY);
-
-			if(diff < bestDiff){
-				bestDiff = diff;
-				targetIndex = i;
-			}
-		}
-		if(targetIndex == -1) return;
-
-			if(bestDiff <= 30){
-				resultText = "Great";
-				score += 100;
-				combo++;
-				greatCount++;
-				if(combo>maxCombo)maxCombo=combo;
-				resultTimer = 90;
-				scorePopup = "+100";
-				scorePopupTimer = 90;
-				gameNotes[targetIndex].hit = true;
-				gameNotes[targetIndex].judged = true;
-			}
-			else if(bestDiff <= 60){
-				resultText = "Good";
-				score += 50;
-				combo++;
-				goodCount++;
-				if(combo>maxCombo)maxCombo=combo;
-				resultTimer = 90;
-				scorePopup = "+50";
-				scorePopupTimer = 90;
-				gameNotes[targetIndex].hit = true;
-				gameNotes[targetIndex].judged = true;
-			}
-			else{
-				resultText = "Miss";
-				combo = 0;
-				resultTimer = 90;
-				missCount++;
-				scorePopup = "";
-				scorePopupTimer = 0;
-				
-				float missTime = gameNotes[targetIndex].time;
-
-				for(int i = 0; i < gameNotes.size(); i++){
-					if(gameNotes[i].judged) continue;
-
-					float y = getGameNoteY(gameNotes[i]);
-
-					if(gameNotes[i].time <= missTime && y > -30){
-						gameNotes[i].judged = true;
-						gameNotes[i].hit = false;
-					}
-				}
-			}
-}
-//--------------------------------------------------------------
-void ofApp::keyPressedDifficulty(int key){
-	if(key == 'b'||key == 'B'){
-		currentState = STATE_TITLE;
+	}
+	if(targetIndex == -1) return;
+	
+	if(bestDiff <= 30){
+		resultText = "Great";
+		score += 100;
+		combo++;
+		greatCount++;
+		if(combo>maxCombo)maxCombo=combo;
+		resultTimer = 90;
+		scorePopup = "+100";
+		scorePopupTimer = 90;
+		gameNotes[targetIndex].hit = true;
+		gameNotes[targetIndex].judged = true;
+	}
+	else if(bestDiff <= 60){
+		resultText = "Good";
+		score += 50;
+		combo++;
+		goodCount++;
+		if(combo>maxCombo)maxCombo=combo;
+		resultTimer = 90;
+		scorePopup = "+50";
+		scorePopupTimer = 90;
+		gameNotes[targetIndex].hit = true;
+		gameNotes[targetIndex].judged = true;
+	}
+	else{
+		resultText = "Miss";
+		combo = 0;
+		resultTimer = 90;
+		missCount++;
+		scorePopup = "";
+		scorePopupTimer = 0;
+		
+		gameNotes[targetIndex].judged = true;
+		gameNotes[targetIndex].hit = false;
+		
 	}
 }
 //--------------------------------------------------------------
-	//譜面
+void ofApp::keyPressedDifficulty(int key){
+	
+	if(!canPressLaneButton(key)){
+			return;
+		}
+	if(key == 's'||key == 'S'){
+		currentState = STATE_TITLE;
+	
+	}
+	if(key=='1'){
+		selectedDifficulty=0;
+		score=0;
+		combo=0;
+		resultText = "";
+		resultTimer = 0;
+		scorePopup = "";
+		scorePopupTimer = 0;
+		greatCount = 0;
+		goodCount = 0;
+		missCount = 0;
+		maxCombo = 0;
+		gameEndWaiting = false;
+		gameEndTime = 0;
+		noteAppearTime = 4.0f;
+		loadEasyNotes();
+		bgm.stop();
+		bgm.setPosition(0);
+		isCountdown = true;
+		countdownSartTime = ofGetElapsedTimef();
+		currentState = STATE_PLAY;
+		return;
+	}
+	if(key=='2'){
+		selectedDifficulty = 1;
+		score = 0;
+		combo = 0;
+		resultText = "";
+		resultTimer = 0;
+		scorePopup = "";
+		scorePopupTimer = 0;
+		greatCount = 0;
+		goodCount = 0;
+		missCount = 0;
+		maxCombo = 0;
+		gameEndWaiting = false;
+		gameEndTime = 0;
+		noteAppearTime = 2.5f;
+		loadNormalNotes();
+		bgm.stop();
+		bgm.setPosition(0);
+		isCountdown = true;
+		countdownSartTime = ofGetElapsedTimef();
+		currentState = STATE_PLAY;
+		return;
+	}
+	if(key=='3'){
+		selectedDifficulty = 2;
+		score = 0;
+		combo = 0;
+		resultText = "";
+		resultTimer = 0;
+		scorePopup = "";
+		scorePopupTimer = 0;
+		greatCount = 0;
+		goodCount = 0;
+		missCount = 0;
+		maxCombo = 0;
+		gameEndWaiting = false;
+		gameEndTime = 0;
+		noteAppearTime = 2.5f;
+		loadHardNotes();
+		bgm.stop();
+		bgm.setPosition(0);
+		isCountdown = true;
+		countdownSartTime = ofGetElapsedTimef();
+		currentState = STATE_PLAY;
+		return;
+	}
+}
+//--------------------------------------------------------------
+//譜面
 void ofApp::loadEasyNotes(){
+	//log
+	button1Count = 0;
+	button2Count = 0;
+	button3Count = 0;
+	button4Count = 0;
+	button5Count = 0;
+	sendText2server("game_start_easy");
+	
+	
 	gameNotes.clear();
 	
 	gameNotes = {
-			{4.5f, 0, false, false},
-			{6.0f, 1, false, false},
-			{7.5f, 2, false, false},
-			{9.0f, 3, false, false},
-
-			{11.0f, 1, false, false},
-			{12.5f, 2, false, false},
-			{14.0f, 0, false, false},
-			{15.5f, 3, false, false},
-
-			{17.0f, 0, false, false},
-			{18.2f, 2, false, false},
-			{19.6f, 1, false, false},
-			{21.0f, 3, false, false},
-
-			{23.0f, 0, false, false},
-			{24.2f, 1, false, false},
-			{25.4f, 2, false, false},
-			{26.6f, 3, false, false},
-
-
-			{29.0f, 1, false, false},
-			{30.0f, 2, false, false},
-			{31.0f, 0, false, false},
-			{32.0f, 3, false, false},
-
-			{34.0f, 0, false, false},
-			{35.0f, 1, false, false},
-			{36.0f, 2, false, false},
-			{37.0f, 3, false, false},
-
-			{40.0f, 0, false, false},
-			{41.0f, 2, false, false},
-			{42.0f, 1, false, false},
-			{43.0f, 3, false, false},
-
-			{45.0f, 0, false, false},
-			{46.0f, 1, false, false},
-			{47.0f, 2, false, false},
-			{48.0f, 3, false, false},
-
-			{51.0f, 1, false, false},
-			{53.0f, 2, false, false},
-			{55.0f, 0, false, false},
-			{57.0f, 3, false, false},
-			{59.0f, 1, false, false},
-			{61.0f, 2, false, false}
-		};
-
+		{4.5f, 0, false, false},
+		{6.0f, 1, false, false},
+		{7.5f, 2, false, false},
+		{9.0f, 3, false, false},
+		{10.5f, 4, false, false},
+		
+		{12.0f, 1, false, false},
+		{13.5f, 2, false, false},
+		{15.0f, 0, false, false},
+		{16.5f, 4, false, false},
+		
+		{18.0f, 0, false, false},
+		{19.2f, 2, false, false},
+		{20.6f, 1, false, false},
+		{22.0f, 3, false, false},
+		
+		{24.0f, 0, false, false},
+		{25.2f, 1, false, false},
+		{26.4f, 2, false, false},
+		{27.6f, 4, false, false},
+		
+		{30.0f, 1, false, false},
+		{31.0f, 2, false, false},
+		{32.0f, 3, false, false},
+		{33.0f, 4, false, false},
+		
+		{35.0f, 0, false, false},
+		{36.0f, 1, false, false},
+		{37.0f, 2, false, false},
+		{38.0f, 3, false, false},
+		{39.0f, 4, false, false},
+		
+		{41.0f, 0, false, false},
+		{42.0f, 2, false, false},
+		{43.0f, 1, false, false},
+		{44.0f, 4, false, false},
+		
+		{46.0f, 0, false, false},
+		{47.0f, 1, false, false},
+		{48.0f, 2, false, false},
+		{49.0f, 3, false, false},
+		{50.0f, 4, false, false},
+		
+		{52.0f, 1, false, false},
+		{54.0f, 2, false, false},
+		{56.0f, 0, false, false},
+		{58.0f, 4, false, false},
+		{60.0f, 1, false, false},
+		{62.0f, 2, false, false}
+	};
+	
 }
 //--------------------------------------------------------------
 void ofApp::loadNormalNotes(){
+	//log
+	button1Count = 0;
+	button2Count = 0;
+	button3Count = 0;
+	button4Count = 0;
+	button5Count = 0;
+	sendText2server("game_start_normal");
+	
 	gameNotes.clear();
-
-		gameNotes = {
-			{4.5f, 0, false, false},
-			{5.5f, 1, false, false},
-			{6.5f, 2, false, false},
-			{7.5f, 3, false, false},
-			{8.5f, 1, false, false},
-			{9.5f, 2, false, false},
-
-			{11.0f, 0, false, false},
-			{12.0f, 2, false, false},
-			{13.0f, 1, false, false},
-			{14.0f, 3, false, false},
-			{15.0f, 0, false, false},
-			{16.0f, 2, false, false},
-
-			{17.0f, 1, false, false},
-			{18.0f, 3, false, false},
-			{19.0f, 0, false, false},
-			{20.0f, 1, false, false},
-			{21.0f, 2, false, false},
-			{22.0f, 3, false, false},
-
-			{24.0f, 0, false, false},
-			{24.8f, 1, false, false},
-			{25.6f, 2, false, false},
-			{26.4f, 3, false, false},
-
-			{28.0f, 3, false, false},
-			{28.8f, 2, false, false},
-			{29.6f, 1, false, false},
-			{30.4f, 0, false, false},
-
-			{32.0f, 0, false, false},
-			{32.8f, 2, false, false},
-			{33.6f, 1, false, false},
-			{34.4f, 3, false, false},
-
-			{36.0f, 0, false, false},
-			{36.7f, 1, false, false},
-			{37.4f, 2, false, false},
-			{38.1f, 3, false, false},
-
-			{39.0f, 1, false, false},
-			{39.7f, 2, false, false},
-			{40.4f, 0, false, false},
-			{41.1f, 3, false, false},
-
-			{42.0f, 0, false, false},
-			{42.7f, 2, false, false},
-			{43.4f, 1, false, false},
-			{44.1f, 3, false, false},
-
-			{45.0f, 3, false, false},
-			{45.7f, 2, false, false},
-			{46.4f, 1, false, false},
-			{47.1f, 0, false, false},
-
-			{49.0f, 0, false, false},
-			{50.0f, 1, false, false},
-			{51.0f, 2, false, false},
-			{52.0f, 3, false, false},
-			{53.0f, 1, false, false},
-			{54.0f, 2, false, false},
-
-			{56.0f, 0, false, false},
-			{57.0f, 2, false, false},
-			{58.0f, 1, false, false},
-			{59.0f, 3, false, false},
-			{60.0f, 0, false, false},
-			{61.0f, 3, false, false}
-		};
+	
+	gameNotes = {
+		{4.5f,0,false,false},
+		{5.5f,1,false,false},
+		{6.5f,2,false,false},
+		{7.5f,3,false,false},
+		{8.5f,4,false,false},
+		{9.5f,2,false,false},
+		
+		{11.0f,0,false,false},
+		{12.0f,2,false,false},
+		{13.0f,1,false,false},
+		{14.0f,4,false,false},
+		{15.0f,0,false,false},
+		{16.0f,3,false,false},
+		
+		{17.0f,1,false,false},
+		{18.0f,4,false,false},
+		{19.0f,0,false,false},
+		{20.0f,2,false,false},
+		{21.0f,3,false,false},
+		{22.0f,4,false,false},
+		
+		{24.0f,0,false,false},
+		{24.8f,1,false,false},
+		{25.6f,2,false,false},
+		{26.4f,3,false,false},
+		{27.2f,4,false,false},
+		
+		{28.0f,4,false,false},
+		{28.8f,3,false,false},
+		{29.6f,2,false,false},
+		{30.4f,1,false,false},
+		{31.2f,0,false,false},
+		
+		{32.0f,0,false,false},
+		{32.8f,2,false,false},
+		{33.6f,1,false,false},
+		{34.4f,4,false,false},
+		
+		{36.0f,0,false,false},
+		{36.7f,1,false,false},
+		{37.4f,2,false,false},
+		{38.1f,3,false,false},
+		{38.8f,4,false,false},
+		
+		{39.0f,2,false,false},
+		{39.7f,3,false,false},
+		{40.4f,1,false,false},
+		{41.1f,4,false,false},
+		
+		{42.0f,0,false,false},
+		{42.7f,2,false,false},
+		{43.4f,1,false,false},
+		{44.1f,4,false,false},
+		
+		{45.0f,4,false,false},
+		{45.7f,3,false,false},
+		{46.4f,2,false,false},
+		{47.1f,1,false,false},
+		{47.8f,0,false,false},
+		
+		{49.0f,0,false,false},
+		{50.0f,1,false,false},
+		{51.0f,2,false,false},
+		{52.0f,3,false,false},
+		{53.0f,4,false,false},
+		{54.0f,2,false,false},
+		
+		{56.0f,0,false,false},
+		{57.0f,3,false,false},
+		{58.0f,2,false,false},
+		{59.0f,4,false,false},
+		{60.0f,1,false,false},
+		{61.0f,0,false,false}
+	};
 }
 //--------------------------------------------------------------
 void ofApp::loadHardNotes(){
+	//log
+	button1Count = 0;
+	button2Count = 0;
+	button3Count = 0;
+	button4Count = 0;
+	button5Count = 0;
+	sendText2server("game_start_hard");
+	
 	gameNotes.clear();
-
-		gameNotes = {
-			{4.5f,0,false,false},
-			{5.1f,2,false,false},
-			{5.7f,1,false,false},
-			{6.3f,3,false,false},
-			{6.9f,0,false,false},
-			{7.5f,3,false,false},
-			{8.1f,1,false,false},
-			{8.7f,2,false,false},
-			{9.3f,0,false,false},
-
-			{10.5f,2,false,false},
-			{11.0f,0,false,false},
-			{11.5f,3,false,false},
-			{12.0f,1,false,false},
-			{12.5f,2,false,false},
-			{13.0f,0,false,false},
-			{13.5f,3,false,false},
-			{14.0f,1,false,false},
-
-			{14.6f,0,false,false},
-			{15.1f,2,false,false},
-			{15.6f,3,false,false},
-			{16.1f,1,false,false},
-			{16.6f,0,false,false},
-			{17.1f,3,false,false},
-			{17.6f,2,false,false},
-			{18.1f,1,false,false},
-
-			{19.0f,0,false,false},
-			{19.4f,3,false,false},
-			{19.8f,1,false,false},
-			{20.2f,2,false,false},
-			{20.6f,0,false,false},
-			{21.0f,2,false,false},
-			{21.4f,3,false,false},
-			{21.8f,1,false,false},
-
-			{23.0f,0,false,false},
-			{23.35f,2,false,false},
-			{23.7f,1,false,false},
-			{24.05f,3,false,false},
-			{24.4f,0,false,false},
-			{24.75f,3,false,false},
-			{25.1f,1,false,false},
-			{25.45f,2,false,false},
-
-			{27.0f,0,false,false},
-			{27.5f,3,false,false},
-			{28.0f,1,false,false},
-			{28.5f,2,false,false},
-			{29.0f,0,false,false},
-			{29.5f,2,false,false},
-			{30.0f,1,false,false},
-			{30.5f,3,false,false},
-
-			{31.0f,2,false,false},
-			{31.4f,0,false,false},
-			{31.8f,3,false,false},
-			{32.2f,1,false,false},
-			{32.6f,2,false,false},
-			{33.0f,0,false,false},
-			{33.4f,1,false,false},
-			{33.8f,3,false,false},
-
-			{35.0f,0,false,false},
-			{35.3f,1,false,false},
-			{35.6f,3,false,false},
-			{35.9f,2,false,false},
-			{36.2f,0,false,false},
-			{36.5f,2,false,false},
-			{36.8f,1,false,false},
-			{37.1f,3,false,false},
-
-			{38.0f,3,false,false},
-			{38.3f,1,false,false},
-			{38.6f,0,false,false},
-			{38.9f,2,false,false},
-			{39.2f,3,false,false},
-			{39.5f,0,false,false},
-			{39.8f,2,false,false},
-			{40.1f,1,false,false},
-
-			{42.0f,0,false,false},
-			{42.6f,3,false,false},
-			{43.2f,1,false,false},
-			{43.8f,2,false,false},
-			{44.4f,0,false,false},
-			{45.0f,2,false,false},
-			{45.6f,3,false,false},
-			{46.2f,1,false,false},
-
-			{48.0f,0,false,false},
-			{49.0f,3,false,false},
-			{50.0f,1,false,false},
-			{51.0f,2,false,false},
-			{52.0f,0,false,false},
-			{53.0f,3,false,false},
-			{54.0f,1,false,false},
-			{55.0f,2,false,false},
-			{56.0f,0,false,false},
-			{57.0f,3,false,false},
-			{58.0f,1,false,false},
-			{59.0f,2,false,false},
-			{60.0f,0,false,false},
-			{61.0f,3,false,false}
-		};
+	
+	gameNotes = {
+		{4.5f,0,false,false},
+		{5.1f,2,false,false},
+		{5.7f,1,false,false},
+		{6.3f,4,false,false},
+		{6.9f,0,false,false},
+		{7.5f,3,false,false},
+		{8.1f,1,false,false},
+		{8.7f,2,false,false},
+		{9.3f,4,false,false},
+		
+		{10.5f,2,false,false},
+		{11.0f,0,false,false},
+		{11.5f,4,false,false},
+		{12.0f,1,false,false},
+		{12.5f,2,false,false},
+		{13.0f,0,false,false},
+		{13.5f,3,false,false},
+		{14.0f,4,false,false},
+		
+		{14.6f,0,false,false},
+		{15.1f,2,false,false},
+		{15.6f,4,false,false},
+		{16.1f,1,false,false},
+		{16.6f,0,false,false},
+		{17.1f,3,false,false},
+		{17.6f,2,false,false},
+		{18.1f,4,false,false},
+		
+		{19.0f,0,false,false},
+		{19.4f,4,false,false},
+		{19.8f,1,false,false},
+		{20.2f,2,false,false},
+		{20.6f,0,false,false},
+		{21.0f,2,false,false},
+		{21.4f,3,false,false},
+		{21.8f,4,false,false},
+		
+		{23.0f,0,false,false},
+		{23.35f,2,false,false},
+		{23.7f,1,false,false},
+		{24.05f,4,false,false},
+		{24.4f,0,false,false},
+		{24.75f,3,false,false},
+		{25.1f,1,false,false},
+		{25.45f,2,false,false},
+		
+		{27.0f,0,false,false},
+		{27.5f,4,false,false},
+		{28.0f,1,false,false},
+		{28.5f,2,false,false},
+		{29.0f,0,false,false},
+		{29.5f,2,false,false},
+		{30.0f,1,false,false},
+		{30.5f,3,false,false},
+		
+		{31.0f,2,false,false},
+		{31.4f,0,false,false},
+		{31.8f,4,false,false},
+		{32.2f,1,false,false},
+		{32.6f,2,false,false},
+		{33.0f,0,false,false},
+		{33.4f,1,false,false},
+		{33.8f,3,false,false},
+		
+		{35.0f,0,false,false},
+		{35.3f,1,false,false},
+		{35.6f,4,false,false},
+		{35.9f,2,false,false},
+		{36.2f,0,false,false},
+		{36.5f,2,false,false},
+		{36.8f,1,false,false},
+		{37.1f,3,false,false},
+		
+		{38.0f,4,false,false},
+		{38.3f,1,false,false},
+		{38.6f,0,false,false},
+		{38.9f,2,false,false},
+		{39.2f,3,false,false},
+		{39.5f,0,false,false},
+		{39.8f,4,false,false},
+		{40.1f,1,false,false},
+		
+		{42.0f,0,false,false},
+		{42.6f,4,false,false},
+		{43.2f,1,false,false},
+		{43.8f,2,false,false},
+		{44.4f,0,false,false},
+		{45.0f,2,false,false},
+		{45.6f,3,false,false},
+		{46.2f,4,false,false},
+		
+		{48.0f,0,false,false},
+		{49.0f,4,false,false},
+		{50.0f,1,false,false},
+		{51.0f,2,false,false},
+		{52.0f,0,false,false},
+		{53.0f,3,false,false},
+		{54.0f,1,false,false},
+		{55.0f,4,false,false},
+		{56.0f,0,false,false},
+		{57.0f,3,false,false},
+		{58.0f,1,false,false},
+		{59.0f,2,false,false},
+		{60.0f,4,false,false},
+		{61.0f,3,false,false}
+	};
 }
 //--------------------------------------------------------------
 float ofApp::getCurrentGameTime(){
+	if(isPause||isResumeCountdown){
+		return pauseStartTime-gameStartTime;
+	}
 	return ofGetElapsedTimef() - gameStartTime;
 }
 //--------------------------------------------------------------
@@ -1088,5 +1640,36 @@ void ofApp::checkGameEnd(){
 		gameEndWaiting = true;
 		gameEndTime = ofGetElapsedTimef();
 		bgm.stop();
+		
+		//log
+		string data ="game_end score=" + ofToString(score)
+		+",button1=" + ofToString(button1Count)
+		+",button2=" + ofToString(button2Count)
+		+",button3=" + ofToString(button3Count)
+		+",button4=" + ofToString(button4Count)
+		+",button5=" + ofToString(button5Count);
+		sendText2server(data);
 	}
+}
+//--------------------------------------------------------------
+bool ofApp::canPressLaneButton(int key){
+	int pressedLane = -1;
+	if(key == '1') pressedLane = 0;
+	else if(key == '2') pressedLane = 1;
+	else if(key == '3') pressedLane = 2;
+	else if(key == '4') pressedLane = 3;
+	else if(key == '5') pressedLane = 4;
+
+	if(pressedLane == -1){
+		return true;
+	}
+
+	float now = ofGetElapsedTimef();
+
+	if(now - lastLanePressTime[pressedLane] < menuDebounceTime){
+		return false;
+	}
+
+	lastLanePressTime[pressedLane] = now;
+	return true;
 }
