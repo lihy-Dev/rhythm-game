@@ -59,3 +59,11 @@ Players can also navigate through different game screens by pressing buttons wit
 - Special button:
   Menu navigation and pause function
 
+## Screenshots
+![Controller](images/button.jpeg)
+![Controller](images/タイトル.png)
+![Controller](images/チュートリアル.png)
+![Controller](images/難易度選択.png)
+![Controller](images/ゲーム画面.png)
+![Controller](images/タンマ画面.png)
+![Controller](images/結果画面.png)
