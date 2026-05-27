@@ -17,6 +17,13 @@ struct GameNote{
 	bool judged;
 };
 
+struct HitEffect{
+	float x;
+	float y;
+	int lane;
+	float startTime;
+};
+
 class ofApp : public ofBaseApp{
 
 	public:
@@ -113,6 +120,8 @@ class ofApp : public ofBaseApp{
 		bool isCountdown;
 		float countdownSartTime;
 		
+		ofSoundPlayer tutorialBgm;
+		
 		//combo
 		string scorePopup;
 		int scorePopupTimer;
@@ -159,4 +168,21 @@ class ofApp : public ofBaseApp{
 	int buttonBackCount = 0;
 	
 	
+	//feedback
+	ofSoundPlayer hitSound;
+	vector<HitEffect> hitEffects;
+	void addHitEffect(float x,float y,int lane);
+	void drawHitEffects();
+	
+	//tutorial judge
+	void drawDashedLine(float x1,float y1,float x2,float y2,float dashLength = 12,float gapLength = 8);
+	
+	void drawJudgeMarkers(float y);
+	
+	//slide
+	float getGameProgress();
+	float getScoreRate();
+	
+	void drawGameProgressBar();
+	void drawScoreGauge();
 };
