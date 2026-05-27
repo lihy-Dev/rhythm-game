@@ -1,31 +1,6 @@
 #include "ofApp.h"
 
-//--------------------------------------------------------------
-void ofApp::sendText2server(string txt){
- 
-	// 記録サーバとの通信用（いじらない）
-	string com = "curl -s -m 3";
-	string server = "'http://colors.ise.ibaraki.ac.jp/IoTproj/log.php?";
-	string auth = "-u 'iotproj:BrVQxevZ'";
-	string who = "who=";
-	string ID = "ID=";
- 
-	// 各自でプログラムごとに設定
-	// 使えない文字 &, %, =
-	who += "LiH"; // 自分の名前にする、空白OK
-	ID = ID + "RhythmGame(" + __DATE__ + "/" __TIME__ + ")"; // ビルド日時を追加
- 
-	ofStringReplace( who, " ", "%20" ); // 空白を変換 for cURL
-	ofStringReplace( ID, " ", "%20" );
-	ofStringReplace( txt, " ", "%20" );
-		
-	string fullURL = com + " " + auth + " " + server + who +"&"+ ID +"&line="+txt+"'&";
- 
-	cout << fullURL << endl;
-	ofSystem( fullURL );
- 
-}
-//--------------------------------------------------------------
+
 void ofApp::setup(){
 	
 	ofBackground(0);
