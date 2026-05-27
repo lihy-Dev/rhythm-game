@@ -32,23 +32,24 @@ void ofApp::setup(){
 	
 	currentState = STATE_TITLE;
 	selectedDifficulty = 0;
-
-	float laneSpacing = 120;
-	float centerX = ofGetWidth() / 2;
-
-	laneX[0] = centerX - laneSpacing * 2;
-	laneX[1] = centerX - laneSpacing;
-	laneX[2] = centerX;
-	laneX[3] = centerX + laneSpacing;
-	laneX[4] = centerX + laneSpacing * 2;
 	
+	updateLaneLayout();
+//	float laneSpacing = 120;
+//	float centerX = ofGetWidth() / 2;
+//
+//	laneX[0] = centerX - laneSpacing * 2;
+//	laneX[1] = centerX - laneSpacing;
+//	laneX[2] = centerX;
+//	laneX[3] = centerX + laneSpacing;
+//	laneX[4] = centerX + laneSpacing * 2;
+//	
 	laneColor[0] = ofColor(255, 60, 60);
 	laneColor[1] = ofColor(60, 220, 120);
 	laneColor[2] = ofColor(50, 170, 255);
 	laneColor[3] = ofColor(255, 220, 60);
 	laneColor[4] = ofColor(240, 240, 240);
-	
-	judgeLineY = 650;
+//	
+//	judgeLineY = 650;
 	
 	noteX = laneX[0];
 	noteY = 0;
@@ -160,7 +161,29 @@ void ofApp::setup(){
 }
 
 //--------------------------------------------------------------
+void ofApp::updateLaneLayout(){
+	float w = ofGetWidth();
+	float h = ofGetHeight();
 
+	judgeLineY = h * 0.78;
+
+	float gameCenterX = w * 0.53;
+	float gameSpacing = w * 0.095;
+
+	for(int i = 0; i < 5; i++){
+		laneX[i] = gameCenterX + (i - 2) * gameSpacing;
+	}
+
+
+	float tutorialLeft = w * 0.40;
+	float tutorialRight = w * 0.88;
+	float tutorialSpacing = (tutorialRight - tutorialLeft) / 4.0f;
+
+	for(int i = 0; i < 5; i++){
+		tutorialLaneX[i] = tutorialLeft + tutorialSpacing * i;
+	}
+}
+//--------------------------------------------------------------
 //音符reset
 void ofApp::resetNote(){
 	noteY = 0;
@@ -168,9 +191,13 @@ void ofApp::resetNote(){
 }
 
 void ofApp::resetTutorialNote(){
-	int tutorialLaneX[5] = {620,740,860,980,1100};
+//	int tutorialLaneX[5] = {620,740,860,980,1100};
+//	noteY = 0;
+//	noteX = tutorialLaneX[(int)ofRandom(0,5)];
+	updateLaneLayout();
 	noteY = 0;
-	noteX = tutorialLaneX[(int)ofRandom(0,5)];
+	int lane = (int)ofRandom(0,5);
+	noteX = tutorialLaneX[lane];
 }
 
 //--------------------------------------------------------------
@@ -306,44 +333,90 @@ void ofApp::drawTutorialScreen(){
 	ofDrawLine(dividerX, 120, dividerX, 700);
 	
 	//lane
-	int tutorialLaneX[5];
-	tutorialLaneX[0] = 620;
-	tutorialLaneX[1] = 740;
-	tutorialLaneX[2] = 860;
-	tutorialLaneX[3] = 980;
-	tutorialLaneX[4] = 1100;
-	
+	updateLaneLayout();
+
+	float tutorialLaneTop = h * 0.16;
+	judgeLineY = h * 0.78;
+	float tutorialLaneBottom = judgeLineY + h * 0.10;
+
 	ofSetColor(170);
-	for(int i = 0;i<5;i++){
-		ofDrawLine(tutorialLaneX[i], 150, tutorialLaneX[i], 650);
+	ofSetLineWidth(2);
+	for(int i = 0; i < 5; i++){
+		ofDrawLine(tutorialLaneX[i], tutorialLaneTop, tutorialLaneX[i], tutorialLaneBottom);
 	}
-	
+	ofSetLineWidth(1);
 
 	string tutorialKeys[5] = {"1", "2", "3", "4", "5"};
 
-	for(int i=0; i<5; i++){
+	for(int i = 0; i < 5; i++){
 		ofSetColor(laneColor[i]);
 		keyFont.drawString(
 			tutorialKeys[i],
-			tutorialLaneX[i] - keyFont.stringWidth(tutorialKeys[i])/2,
-			130
+			tutorialLaneX[i] - keyFont.stringWidth(tutorialKeys[i]) / 2,
+			tutorialLaneTop - 25
 		);
 	}
+//	int tutorialLaneX[5];
+//	tutorialLaneX[0] = 620;
+//	tutorialLaneX[1] = 740;
+//	tutorialLaneX[2] = 860;
+//	tutorialLaneX[3] = 980;
+//	tutorialLaneX[4] = 1100;
+//	
+//	ofSetColor(170);
+//	for(int i = 0;i<5;i++){
+//		ofDrawLine(tutorialLaneX[i], 150, tutorialLaneX[i], 650);
+//	}
+//	
+//
+//	string tutorialKeys[5] = {"1", "2", "3", "4", "5"};
+//
+//	for(int i=0; i<5; i++){
+//		ofSetColor(laneColor[i]);
+//		keyFont.drawString(
+//			tutorialKeys[i],
+//			tutorialLaneX[i] - keyFont.stringWidth(tutorialKeys[i])/2,
+//			130
+//		);
+//	}
 	//判定線
-	judgeLineY = 600;
+	float judgeLeft = tutorialLaneX[0] - w * 0.055;
+	float judgeRight = tutorialLaneX[4] + w * 0.055;
+
 	ofSetColor(255, 0, 0);
-	ofDrawLine(540, judgeLineY, 1180, judgeLineY);
+	ofSetLineWidth(3);
+	ofDrawLine(judgeLeft, judgeLineY, judgeRight, judgeLineY);
+	ofSetLineWidth(1);
+//	judgeLineY = 600;
+//	ofSetColor(255, 0, 0);
+//	ofDrawLine(540, judgeLineY, 1180, judgeLineY);
 	
 	//Note
 	int noteLane = 0;
-	for(int i = 0;i<5;i++){
-		if(noteX==tutorialLaneX[i]){
-			noteLane=i;
-			break;
+	float minDiff = 999999;
+
+	for(int i = 0; i < 5; i++){
+		float diff = abs(noteX - tutorialLaneX[i]);
+		if(diff < minDiff){
+			minDiff = diff;
+			noteLane = i;
 		}
 	}
+
 	ofSetColor(laneColor[noteLane]);
-	ofDrawRectangle(noteX-20, noteY, 40, 20);
+
+	float noteW = w * 0.035;
+	float noteH = h * 0.025;
+	ofDrawRectangle(noteX - noteW / 2, noteY, noteW, noteH);
+//	int noteLane = 0;
+//	for(int i = 0;i<5;i++){
+//		if(noteX==tutorialLaneX[i]){
+//			noteLane=i;
+//			break;
+//		}
+//	}
+//	ofSetColor(laneColor[noteLane]);
+//	ofDrawRectangle(noteX-20, noteY, 40, 20);
 	
 	if(resultTimer > 0){
 		if(resultText == "Great") ofSetColor(255, 255, 0);
@@ -487,11 +560,14 @@ void ofApp::draw(){
 }
 //--------------------------------------------------------------
 void ofApp::drawPlayScreen(){
+	updateLaneLayout();
 	ofBackground(10, 10, 20);
-	int laneTop = 80;
-	int laneBottom = judgeLineY + 80;
-	int laneLeft = laneX[0] - 70;
-	int laneRight = laneX[4] + 70;
+	float w=ofGetWidth();
+	float h=ofGetHeight();
+	float laneTop = h*0.12;
+	float laneBottom = h*0.90;
+	float laneLeft = laneX[0] - w*0.065;
+	float laneRight = laneX[4] + w*0.065;
 	//背景
 	ofSetColor(20, 20, 35);
 	ofDrawRectangle(laneLeft, laneTop, laneRight - laneLeft, laneBottom - laneTop);
@@ -565,7 +641,10 @@ void ofApp::drawPlayScreen(){
 		int lane = gameNotes[i].lane;
 
 		ofSetColor(laneColor[lane]);
-		ofDrawRectangle(laneX[lane]-35,y,70,24);
+//		ofDrawRectangle(laneX[lane]-35,y,70,24);
+		float noteW=w*0.065;
+		float noteH=h*0.035;
+		ofDrawRectangle(laneX[lane]-noteW/2, y, noteW, noteH);
 	}
 	
 	
@@ -574,7 +653,10 @@ void ofApp::drawPlayScreen(){
 		else if(resultText == "Good") ofSetColor(0, 255, 0);
 		else if(resultText == "Miss") ofSetColor(255, 255, 255);
 		
-		judgeFont.drawString(resultText, 950, 330);
+		float judgeTextX = laneRight + w * 0.04;
+		float judgeTextY = h * 0.38;
+
+		judgeFont.drawString(resultText, judgeTextX, judgeTextY);
 	}
 	
 	if (gameEndWaiting) {
@@ -696,7 +778,7 @@ void ofApp::drawColorButton(int x, int y, ofColor color){
 }
 //--------------------------------------------------------------
 void ofApp::drawSquareButton(float x, float y, ofColor color){
-	float size=ofGetHeight()*0.05;
+	float size=38;
 	ofSetColor(color);
 	ofDrawRectangle(x-size/2, y-size/2, size, size);
 	ofNoFill();
@@ -704,6 +786,7 @@ void ofApp::drawSquareButton(float x, float y, ofColor color){
 	ofSetLineWidth(3);
 	ofDrawRectangle(x-size/2, y-size/2, size, size);
 	ofFill();
+	ofSetLineWidth(1);
 }
 //--------------------------------------------------------------
 void ofApp::keyPressedTitle(int key){
@@ -883,6 +966,10 @@ void ofApp::mousePressed(int x, int y, int button){
 //--------------------------------------------------------------
 void ofApp::drawResultScreen(){
 	ofBackground(10, 10, 20);
+
+	float w = ofGetWidth();
+	float h = ofGetHeight();
+
 	string title;
 	if(missCount == 0){
 		title = "FULL COMBO!";
@@ -892,30 +979,38 @@ void ofApp::drawResultScreen(){
 		title = "CLEAR!";
 		ofSetColor(255);
 	}
-	
+
 	float titleWidth = titleFont.stringWidth(title);
-	titleFont.drawString(title, ofGetWidth()/2-titleWidth/2, 140);
-	
+	titleFont.drawString(title, w / 2 - titleWidth / 2, h * 0.18);
+
+	float textX = w / 2 - 170;
+	float startY = h * 0.30;
+	float lineH = 55;
+
 	ofSetColor(255, 255, 0);
-	menuFont.drawString("Score: " + ofToString(score), 500, 240);
-	
+	menuFont.drawString("Score: " + ofToString(score), textX, startY);
+
 	ofSetColor(255);
-	menuFont.drawString("Max Combo: " + ofToString(maxCombo), 500, 300);
-	menuFont.drawString("Great: " + ofToString(greatCount), 500, 360);
-	menuFont.drawString("Good: " + ofToString(goodCount), 500, 420);
-	menuFont.drawString("Miss: " + ofToString(missCount), 500, 480);
-	
-	//	ofSetColor(180);
-	//	string backText = "Press S to Title";
-	//	float backWidth = menuFont.stringWidth(backText);
-	//	menuFont.drawString(backText, ofGetWidth()/2-backWidth/2, 620);
-	float w=ofGetWidth();
-	float y =620;
-	float buttonX=w/2-100;
-	float textX=w/2-60;
-	drawSquareButton(buttonX, y-10, ofColor(240,240,240));
+	menuFont.drawString("Max Combo: " + ofToString(maxCombo), textX, startY + lineH);
+	menuFont.drawString("Great: " + ofToString(greatCount), textX, startY + lineH * 2);
+	menuFont.drawString("Good: " + ofToString(goodCount), textX, startY + lineH * 3);
+	menuFont.drawString("Miss: " + ofToString(missCount), textX, startY + lineH * 4);
+
+	float buttonY = h * 0.72;
+
+	string backText = "タイトルもどる";
+	float textW = menuFont.stringWidth(backText);
+
+	float groupW = 38 + 20 + textW;
+	float groupX = w / 2 - groupW / 2;
+
+	float buttonX = groupX + 19;
+	float X = groupX + 38 + 20;
+
+	drawSquareButton(buttonX, buttonY, ofColor(240,240,240));
+
 	ofSetColor(180);
-	menuFont.drawString("Titleもどる", textX, y);
+	menuFont.drawString(backText, X, buttonY + 8);
 	
 }
 //--------------------------------------------------------------
@@ -935,6 +1030,7 @@ void ofApp::mouseExited(int x, int y){
 
 //--------------------------------------------------------------
 void ofApp::windowResized(int w, int h){
+	updateLaneLayout();
 	
 }
 
@@ -980,8 +1076,8 @@ void ofApp::keyPressedTutorial(int key){
 	if(pressedLane == -1) return;
 	
 	//key押す正しいことの判断
-	int tutorialLaneX[5] = {620, 740, 860, 980, 1100};
-	
+//	int tutorialLaneX[5] = {620, 740, 860, 980, 1100};
+	updateLaneLayout();
 	//連続防止
 	float now = ofGetElapsedTimef();
 	if(now-lastLanePressTime[pressedLane]<debounceTime){

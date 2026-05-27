@@ -68,6 +68,8 @@ class ofApp : public ofBaseApp{
 		//line
 		int laneX[5];
 		int judgeLineY;
+		void updateLaneLayout();
+		float tutorialLaneX[5];
 	
 		//ボタン
 		int score;
