@@ -156,16 +156,7 @@ class ofApp : public ofBaseApp{
 	float resumeCountdownStartTime;
 	
 	
-	//log
-	void sendText2server( string txt );
-	uint64_t lastLogTime = 0;
-	int button1Count = 0;
-	int button2Count = 0;
-	int button3Count = 0;
-	int button4Count = 0;
-	int button5Count = 0;
-	int buttonOKcount = 0;
-	int buttonBackCount = 0;
+
 	
 	
 	//feedback
@@ -185,4 +176,9 @@ class ofApp : public ofBaseApp{
 	
 	void drawGameProgressBar();
 	void drawScoreGauge();
+	
+	ofImage titleBg;
+	ofImage titleLogo;
+	ofImage titleMenu;
+	
 };

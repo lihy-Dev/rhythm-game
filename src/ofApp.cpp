@@ -1,10 +1,6 @@
 #include "ofApp.h"
 
 //--------------------------------------------------------------
-
- 
-}
-//--------------------------------------------------------------
 void ofApp::setup(){
 	
 	ofBackground(0);
@@ -37,7 +33,7 @@ void ofApp::setup(){
 	
 	pauseStartTime=0.0f;
 
-	ofTrueTypeFontSettings tutorialsettings("NotoSansJP-Regular.ttf", 18);
+	ofTrueTypeFontSettings tutorialsettings("NotoSansJP-Regular.ttf", 30);
 	tutorialsettings.addRanges(ofAlphabet::Latin);
 	tutorialsettings.addRanges(ofAlphabet::Japanese);
 	tutorialFont.load(tutorialsettings);
@@ -114,7 +110,8 @@ void ofApp::setup(){
 	//tutorialbgm
 	tutorialBgm.load("tutorialbgm.mp3");
 	tutorialBgm.setLoop(true);
-	tutorialBgm.setVolume(0.5f);
+	tutorialBgm.setVolume(0.3f);
+	
 	
 	
 	//连续防止
@@ -128,13 +125,16 @@ void ofApp::setup(){
 	//select
 	isPause = false;
 	
-	//log
-	sendText2server("program_start");
-	lastLogTime = ofGetElapsedTimeMillis();
+
 	
 	//pause
 	isResumeCountdown=false;
 	resumeCountdownStartTime=0.0f;
+	
+	titleBg.load("background.png");
+	titleLogo.load("title.png");
+	ofEnableAlphaBlending();
+	titleMenu.load("select3.png");
 	
 	
 }
@@ -189,15 +189,64 @@ void ofApp::update(){
 		updateGame();
 	}
 	
-	//log
-	if(ofGetElapsedTimeMillis()-lastLogTime>=300000){
-		sendText2server("alive");
-		lastLogTime=ofGetElapsedTimeMillis();
-	}
+
 }
 
 //--------------------------------------------------------------
 void ofApp::drawTitleScreen(){
+//	float w = ofGetWidth();
+//	   float h = ofGetHeight();
+//
+//	   ofSetColor(255);
+//
+//	   // ===== 背景：全屏铺满 =====
+//	   if(titleBg.isAllocated()){
+//		   titleBg.draw(0, 0, w, h);
+//	   }
+//	   else{
+//		   ofBackground(5, 8, 35);
+//	   }
+//
+//	   // ===== Logo：按画面比例缩放 =====
+//	   if(titleLogo.isAllocated()){
+//		   float logoW = w * 0.72f;
+//		   float logoH = logoW * titleLogo.getHeight() / titleLogo.getWidth();
+//
+//		   // 太高时限制
+//		   if(logoH > h * 0.38f){
+//			   logoH = h * 0.38f;
+//			   logoW = logoH * titleLogo.getWidth() / titleLogo.getHeight();
+//		   }
+//
+//		   float logoX = (w - logoW) / 2.0f;
+//		   float logoY = h * 0.02f;
+//
+//		   titleLogo.draw(logoX, logoY, logoW, logoH);
+//	   }
+//
+//	   // ===== 菜单图片：红=あそびかた、绿=はじめる、下方提示 =====
+//	   if(titleMenu.isAllocated()){
+//		   float menuW = w * 0.82f;
+//		   float menuH = menuW * titleMenu.getHeight() / titleMenu.getWidth();
+//
+//		   // 防止菜单在小窗口/全屏时过高
+//		   if(menuH > h * 0.62f){
+//			   menuH = h * 0.62f;
+//			   menuW = menuH * titleMenu.getWidth() / titleMenu.getHeight();
+//		   }
+//
+//		   float menuX = (w - menuW) / 2.0f;
+//		   float menuY = h * 0.35f;
+//
+//		   titleMenu.draw(menuX, menuY, menuW, menuH);
+//	   }
+//	   else{
+//		   // 图片加载失败时的备用显示
+//		   string guide = "同じ色のボタンを押してください";
+//		   float guideWidth = menuFont.stringWidth(guide);
+//		   ofSetColor(255);
+//		   menuFont.drawString(guide, w / 2 - guideWidth / 2, h * 0.78f);
+//	   }
 	float w = ofGetWidth();
 	float h = ofGetHeight();
 
@@ -239,31 +288,7 @@ void ofApp::drawTitleScreen(){
 		w / 2 - guideWidth / 2,
 		h * 0.78
 	);
-//	ofNoFill();
-//	ofSetColor(180);
-//	ofDrawRectangle(tutorialButton);
-//	
-//	string text = "Tutorial";
-//	float textWidth = menuFont.stringWidth(text);
-//	float textHeight = menuFont.stringHeight(text);
-//	
-//	ofFill();
-//	ofSetColor(255);
-//	menuFont.drawString(text, tutorialButton.x + tutorialButton.width/2 - textWidth/2, tutorialButton.y + tutorialButton.height/2 + 8);
-//	
-//	
-//	//Startボタン
-//	ofNoFill();
-//	ofSetColor(180);
-//	ofDrawRectangle(startButton);
-//	
-//	string starttext = "Start";
-//	float starttextWidth = menuFont.stringWidth(starttext);
-//	
-//	ofFill();
-//	ofSetColor(255);
-//	menuFont.drawString(starttext, startButton.x + startButton.width/2 - starttextWidth/2, startButton.y + startButton.height/2 + 8);
-	
+
 }
 
 //--------------------------------------------------------------
@@ -273,9 +298,9 @@ void ofApp::drawTutorialScreen(){
 	float w = ofGetWidth();
 	float h = ofGetHeight();
 	
-	float leftX = 70;
+	float leftX = 50;
 	float titleY = 80;
-	float dividerX = 470;
+	float dividerX = 420;
 	
 	ofSetColor(255);
 	string tutorialTitle = "チュートリアル";
@@ -283,30 +308,37 @@ void ofApp::drawTutorialScreen(){
 	titleFont.drawString(tutorialTitle, w / 2 - tutorialTitleWidth / 2, titleY);
 	
 	//説明
+
 	ofSetColor(235);
-	tutorialFont.drawString("あそびかた", leftX, 140);
-	
-	tutorialFont.drawString("ノーツが上から落ちてきます。", leftX, 200);
-	tutorialFont.drawString("赤い線に来たタイミングで、", leftX, 240);
-	tutorialFont.drawString("対応するキーを押してください。", leftX, 280);
+	tutorialFont.drawString("あそびかた", leftX, 130);
 
-	tutorialFont.drawString("赤い線に近いほど評価が高くなり、", leftX, 360);
-	tutorialFont.drawString("スコアも高くなります。", leftX, 400);
+	tutorialFont.drawString("うえから ノーツが", leftX, 190);
+	tutorialFont.drawString("おちてくる", leftX, 230);
 
-	tutorialFont.drawString("評価", leftX, 500);
-	tutorialFont.drawString("Great：とてもよい", leftX, 550);
-	tutorialFont.drawString("Good ：よい", leftX, 590);
-	tutorialFont.drawString("Miss ：はずれ", leftX, 630);
+	tutorialFont.drawString("あかいせんに", leftX, 300);
+	tutorialFont.drawString("きたら", leftX, 340);
 
-	drawSquareButton(leftX+25, 685, ofColor(240,240,240));
-	ofSetColor(255);
-	tutorialFont.drawString("押してもどる", leftX+60, 693);
+	tutorialFont.drawString("おなじいろの", leftX, 410);
+	tutorialFont.drawString("ボタンをおす", leftX, 450);
 	
 	ofSetColor(255, 255, 120);
-	tutorialFont.drawString("Score: " + ofToString(score), leftX, 740);
+	tutorialFont.drawString("スコア", leftX, 540);
+	tutorialFont.drawString("Great: とてもよい", leftX, 590);
+	tutorialFont.drawString("Good: よい", leftX, 630);
+	tutorialFont.drawString("Miss :  はずれ", leftX, 670);
+
+	drawSquareButton(leftX+25, ofGetHeight()-55, ofColor(240,240,240));
+	ofSetColor(255);
+	tutorialFont.drawString("押してもどる", leftX+60, ofGetHeight()-40);
 	
-	ofSetColor(80);
-	ofDrawLine(dividerX, 120, dividerX, 700);
+	
+	ofSetColor(255, 255, 120);
+	tutorialFont.drawString("Score: " + ofToString(score), leftX, h-150);
+	
+	ofSetColor(90);
+	ofSetLineWidth(2);
+	ofDrawLine(dividerX, 90, dividerX, h - 90);
+	ofSetLineWidth(1);
 	
 	//lane
 	updateLaneLayout();
@@ -333,8 +365,8 @@ void ofApp::drawTutorialScreen(){
 		);
 	}
 	//判定線
-	float judgeLeft = tutorialLaneX[0] - w * 0.055;
-	float judgeRight = tutorialLaneX[4] + w * 0.055;
+	float judgeLeft = tutorialLaneX[0] - w * 0.045;
+	float judgeRight = tutorialLaneX[4] + w * 0.035;
 	
 	float greatRange = 30.0f;
 	float goodRange = 60.0f;
@@ -575,7 +607,7 @@ void ofApp::drawPlayScreen(){
 	
 	drawSquareButton(x, y-70, ofColor(255,60,60));
 	ofSetColor(180);
-	menuFont.drawString("タンマ", x+40, y-60);
+	menuFont.drawString("ストップ", x+40, y-60);
 	
 	drawSquareButton(x, y-10, ofColor(240,240,240));
 	ofSetColor(180);
@@ -910,22 +942,7 @@ void ofApp::keyPressed(int key){
 		}
 	}
 	
-	//log
-	if(key=='1'){
-		button1Count++;
-	}
-	if(key=='2'){
-		button2Count++;
-	}
-	if(key=='3'){
-		button3Count++;
-	}
-	if(key=='4'){
-		button4Count++;
-	}
-	if(key=='5'){
-		button5Count++;
-	}
+	
 }
 
 //--------------------------------------------------------------
@@ -1558,13 +1575,8 @@ void ofApp::keyPressedDifficulty(int key){
 //--------------------------------------------------------------
 //譜面
 void ofApp::loadEasyNotes(){
-	//log
-	button1Count = 0;
-	button2Count = 0;
-	button3Count = 0;
-	button4Count = 0;
-	button5Count = 0;
-	sendText2server("game_start_easy");
+
+
 	
 	
 	gameNotes.clear();
@@ -1633,13 +1645,8 @@ void ofApp::loadEasyNotes(){
 }
 //--------------------------------------------------------------
 void ofApp::loadNormalNotes(){
-	//log
-	button1Count = 0;
-	button2Count = 0;
-	button3Count = 0;
-	button4Count = 0;
-	button5Count = 0;
-	sendText2server("game_start_normal");
+
+
 	
 	gameNotes.clear();
 	
@@ -1721,13 +1728,7 @@ void ofApp::loadNormalNotes(){
 }
 //--------------------------------------------------------------
 void ofApp::loadHardNotes(){
-	//log
-	button1Count = 0;
-	button2Count = 0;
-	button3Count = 0;
-	button4Count = 0;
-	button5Count = 0;
-	sendText2server("game_start_hard");
+
 	
 	gameNotes.clear();
 	
@@ -1877,14 +1878,7 @@ void ofApp::checkGameEnd(){
 		gameEndTime = ofGetElapsedTimef();
 		bgm.stop();
 		
-		//log
-		string data ="game_end score=" + ofToString(score)
-		+",button1=" + ofToString(button1Count)
-		+",button2=" + ofToString(button2Count)
-		+",button3=" + ofToString(button3Count)
-		+",button4=" + ofToString(button4Count)
-		+",button5=" + ofToString(button5Count);
-		sendText2server(data);
+
 	}
 }
 //--------------------------------------------------------------
