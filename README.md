@@ -1,6 +1,12 @@
 # Rhythm Game Demo 🎵
 
 ## 日本語
+### 実行方法
+本プロジェクトは openFrameworks のプロジェクトとして作成しています。
+1. openFrameworks 0.11.2 をインストール
+2. 本リポジトリを `openFrameworks/apps/myApps/` に配置
+3. `game.xcodeproj` を Xcode で開く
+4. Build & Run
 
 ### 概要
 本作品は、C++ と openFrameworks を用いて開発した5キーのリズムゲームです。
